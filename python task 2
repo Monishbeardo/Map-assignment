@@ -1,0 +1,103 @@
+##calculate_distance_matrix
+def calculate_distance_matrix(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculate a distance matrix based on the dataframe, df.
+
+    Args:
+        df (pandas.DataFrame)
+
+    Returns:
+        pandas.DataFrame: Distance matrix
+    """
+    # Assuming 'id_start' and 'id_end' are columns representing the start and end points
+    distance_matrix = pd.DataFrame(index=df['id_start'].unique(), columns=df['id_end'].unique())
+
+    for i, row in df.iterrows():
+        distance_matrix.loc[row['id_start'], row['id_end']] = row['distance']
+
+    return distance_matrix
+##unroll_distance_matrix
+def unroll_distance_matrix(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Unroll a distance matrix to a DataFrame in the style of the initial dataset.
+
+    Args:
+        df (pandas.DataFrame)
+
+    Returns:
+        pandas.DataFrame: Unrolled DataFrame containing columns 'id_start', 'id_end', and 'distance'.
+    """
+    unrolled_df = pd.DataFrame(columns=['id_start', 'id_end', 'distance'])
+
+    for i in range(len(df.index)):
+        for j in range(len(df.columns)):
+            unrolled_df = unrolled_df.append({
+                'id_start': df.index[i],
+                'id_end': df.columns[j],
+                'distance': df.iloc[i, j]
+            }, ignore_index=True)
+
+    return unrolled_df
+##find_ids_within_ten_percentage_threshold
+def find_ids_within_ten_percentage_threshold(df: pd.DataFrame, reference_id: int) -> pd.DataFrame:
+    """
+    Find all IDs whose average distance lies within 10% of the average distance of the reference ID.
+
+    Args:
+        df (pandas.DataFrame)
+        reference_id (int)
+
+    Returns:
+        pandas.DataFrame: DataFrame with IDs whose average distance is within the specified percentage threshold
+                          of the reference ID's average distance.
+    """
+    reference_distance = df[df['id_start'] == reference_id]['distance'].mean()
+    threshold = 0.1 * reference_distance
+
+    within_threshold_df = df.groupby('id_start')['distance'].mean().between(reference_distance - threshold,
+                                                                           reference_distance + threshold).reset_index()
+
+    return within_threshold_df
+## calculate_toll_rate
+def calculate_toll_rate(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculate toll rates for each vehicle type based on the unrolled DataFrame.
+
+    Args:
+        df (pandas.DataFrame)
+
+    Returns:
+        pandas.DataFrame
+    """
+    # Assuming 'vehicle_type' is a column representing the type of vehicle
+    toll_rates = df.groupby('vehicle_type')['distance'].sum() * 0.05  # Adjust the toll rate factor as needed
+    toll_rates_df = toll_rates.reset_index()
+    toll_rates_df.columns = ['vehicle_type', 'toll_rate']
+
+    return toll_rates_df
+##calculate_time_based_toll_rates
+def calculate_time_based_toll_rates(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculate time-based toll rates for different time intervals within a day.
+
+    Args:
+        df (pandas.DataFrame)
+
+    Returns:
+        pandas.DataFrame
+    """
+    # Assuming 'timestamp' is a column representing the timestamp of each entry
+    df['hour'] = df['timestamp'].dt.hour
+
+    # Create time intervals (adjust as needed)
+    bins = [0, 6, 12, 18, 24]
+    labels = ['night', 'morning', 'afternoon', 'evening']
+
+    df['time_interval'] = pd.cut(df['hour'], bins=bins, labels=labels, include_lowest=True)
+
+    # Calculate toll rates based on time intervals
+    time_based_toll_rates = df.groupby('time_interval')['distance'].sum() * 0.1  # Adjust the toll rate factor as needed
+    time_based_toll_rates_df = time_based_toll_rates.reset_index()
+    time_based_toll_rates_df.columns = ['time_interval', 'toll_rate']
+
+    return time_based_toll_rates_df
